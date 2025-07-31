@@ -2,12 +2,35 @@ const express = require('express');
 const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize database connection
 const db = new Database(path.join(__dirname, 'gramgrid_puzzles.db'));
+
+// Create analytics table on startup
+const createAnalyticsTable = () => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS analytics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type TEXT NOT NULL,
+      user_id TEXT,
+      puzzle_date DATE,
+      user_agent TEXT,
+      ip_address TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      metadata TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_analytics_date ON analytics(DATE(timestamp));
+    CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics(event_type);
+    CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics(user_id);
+  `);
+};
+
+createAnalyticsTable();
 
 // Middleware
 app.use(cors());
@@ -28,6 +51,55 @@ const getWeekPuzzles = db.prepare(`
   ORDER BY puzzle_date DESC
 `);
 
+
+// Analytics prepared statements
+const insertAnalytics = db.prepare(`
+  INSERT INTO analytics (event_type, user_id, puzzle_date, user_agent, ip_address, metadata) 
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+// Helper functions for analytics
+const getClientIP = (req) => {
+  return req.headers['x-forwarded-for']?.split(',')[0] || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress ||
+         '0.0.0.0';
+};
+
+const generateUserID = (req) => {
+  const ip = getClientIP(req);
+  const userAgent = req.headers['user-agent'] || '';
+  return crypto.createHash('md5').update(ip + userAgent).digest('hex').substring(0, 8);
+};
+
+const trackEvent = (eventType, req, puzzleDate = null, metadata = {}) => {
+  try {
+    insertAnalytics.run(
+      eventType,
+      generateUserID(req),
+      puzzleDate,
+      req.headers['user-agent'] || 'unknown',
+      getClientIP(req),
+      JSON.stringify(metadata)
+    );
+  } catch (error) {
+    console.error('Analytics tracking error:', error);
+  }
+};
+
+// Analytics middleware - track API calls
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/puzzle') && req.method === 'GET') {
+    trackEvent('api_request', req, null, {
+      method: req.method,
+      path: req.path,
+      query: req.query
+    });
+  }
+  next();
+});
+
+// EXISTING ROUTES (with analytics added)
 // Routes
 
 // Health check
@@ -214,6 +286,107 @@ app.delete('/api/puzzle/:date', (req, res) => {
   }
 });
 
+// NEW ANALYTICS ROUTES
+
+// Track custom events from client
+app.post('/api/analytics/event', (req, res) => {
+  try {
+    const { eventType, puzzleDate, metadata } = req.body;
+    
+    if (!eventType) {
+      return res.status(400).json({ error: 'eventType is required' });
+    }
+    
+    trackEvent(eventType, req, puzzleDate || null, metadata || {});
+    res.json({ success: true });
+    
+  } catch (error) {
+    console.error('Analytics event error:', error);
+    res.status(500).json({ error: 'Failed to track event' });
+  }
+});
+
+// Get analytics dashboard data
+app.get('/api/analytics/stats', (req, res) => {
+  try {
+    const stats = {
+      // Daily unique visitors for last 30 days
+      dailyVisitors: db.prepare(`
+        SELECT DATE(timestamp) as date, COUNT(DISTINCT user_id) as visitors
+        FROM analytics 
+        WHERE timestamp >= datetime('now', '-30 days')
+        GROUP BY DATE(timestamp)
+        ORDER BY date DESC
+      `).all(),
+      
+      // Total stats
+      totals: db.prepare(`
+        SELECT 
+          COUNT(DISTINCT user_id) as totalVisitors,
+          COUNT(*) as totalEvents,
+          COUNT(DISTINCT DATE(timestamp)) as activeDays
+        FROM analytics
+      `).get(),
+      
+      // Most popular puzzles
+      popularPuzzles: db.prepare(`
+        SELECT 
+          puzzle_date, 
+          COUNT(*) as accesses,
+          COUNT(DISTINCT user_id) as uniqueUsers
+        FROM analytics 
+        WHERE event_type = 'puzzle_accessed' 
+        AND puzzle_date IS NOT NULL
+        GROUP BY puzzle_date
+        ORDER BY accesses DESC
+        LIMIT 10
+      `).all(),
+      
+      // Event breakdown
+      eventTypes: db.prepare(`
+        SELECT 
+          event_type, 
+          COUNT(*) as count,
+          COUNT(DISTINCT user_id) as uniqueUsers
+        FROM analytics
+        GROUP BY event_type
+        ORDER BY count DESC
+      `).all(),
+      
+      // Recent activity (last 50 events)
+      recentActivity: db.prepare(`
+        SELECT 
+          event_type, 
+          puzzle_date, 
+          datetime(timestamp, 'localtime') as timestamp,
+          CASE 
+            WHEN metadata != '{}' THEN json_extract(metadata, '$.error') 
+            ELSE NULL 
+          END as error
+        FROM analytics
+        ORDER BY timestamp DESC
+        LIMIT 50
+      `).all(),
+      
+      // Today's stats
+      today: db.prepare(`
+        SELECT 
+          COUNT(DISTINCT user_id) as visitors,
+          COUNT(*) as events,
+          COUNT(CASE WHEN event_type = 'puzzle_accessed' THEN 1 END) as puzzleViews
+        FROM analytics
+        WHERE DATE(timestamp) = DATE('now')
+      `).get()
+    };
+    
+    res.json(stats);
+    
+  } catch (error) {
+    console.error('Analytics stats error:', error);
+    res.status(500).json({ error: 'Failed to get analytics stats' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -238,4 +411,5 @@ app.listen(PORT, () => {
   console.log(`📖 Health check: http://localhost:${PORT}/health`);
   console.log(`🧩 Today's puzzle: http://localhost:${PORT}/api/puzzle/today?level=CL`);
   console.log(`📅 Week puzzles: http://localhost:${PORT}/api/puzzles/week?level=CL`);
+  console.log(`📊 Analytics: http://localhost:${PORT}/api/analytics/stats`);
 });
