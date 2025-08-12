@@ -1,8 +1,12 @@
+require('dotenv').config();
+
 const express = require('express');
 const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+
+const authenticateApiKey = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -102,10 +106,27 @@ app.use((req, res, next) => {
 // EXISTING ROUTES (with analytics added)
 // Routes
 
-// Health check
+// Public routes (no authentication required)
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running. Authentication required for protected routes.' });
+});
+
 app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+
+
+// Health check
+/*app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+*/
+
+
+// Protected routes (authentication required)
+app.use('/api', authenticateApiKey); // Apply auth to all /api routes
+
 
 // Get puzzle by date
 app.get('/api/puzzle/:date', (req, res) => {
@@ -412,4 +433,6 @@ app.listen(PORT, () => {
   console.log(`🧩 Today's puzzle: http://localhost:${PORT}/api/puzzle/today?level=CL`);
   console.log(`📅 Week puzzles: http://localhost:${PORT}/api/puzzles/week?level=CL`);
   console.log(`📊 Analytics: http://localhost:${PORT}/api/analytics/stats`);
+  console.log(`API Key authentication is ${process.env.API_KEY ? 'enabled' : 'disabled'}`);
+  
 });
