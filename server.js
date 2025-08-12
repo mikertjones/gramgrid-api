@@ -6,6 +6,16 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 
+// Debug environment variables
+console.log('=== ENVIRONMENT DEBUG ===');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('API_KEY exists:', !!process.env.API_KEY);
+console.log('API_KEY value:', process.env.API_KEY ? '[HIDDEN]' : 'undefined');
+console.log('All env keys:', Object.keys(process.env).filter(key => !key.startsWith('_')));
+console.log('=========================');
+
+
 const authenticateApiKey = require('./auth');
 
 const app = express();
