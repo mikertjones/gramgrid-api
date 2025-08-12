@@ -15,6 +15,16 @@ console.log('API_KEY value:', process.env.API_KEY ? '[HIDDEN]' : 'undefined');
 console.log('All env keys:', Object.keys(process.env).filter(key => !key.startsWith('_')));
 console.log('=========================');
 
+console.log('=== ALL ENVIRONMENT VARIABLES ===');
+Object.keys(process.env).sort().forEach(key => {
+  if (key === 'API_KEY') {
+    console.log(`${key}: [FOUND] ${process.env[key] ? 'HAS_VALUE' : 'NO_VALUE'}`);
+  } else {
+    console.log(`${key}: ${key.startsWith('RAILWAY') ? 'RAILWAY_VAR' : 'OTHER'}`);
+  }
+});
+console.log('=====================================');
+console.log('TEST_VAR:', process.env.TEST_VAR);
 
 const authenticateApiKey = require('./auth');
 
