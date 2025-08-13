@@ -1,8 +1,23 @@
-// Right at the very top, before any other code
-console.log('=== STARTUP CHECK ===');
-console.log('HELLO at startup:', process.env.HELLO);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('===================');
+// Add this as the first lines in server.js
+console.log('=== ENVIRONMENT DETECTIVE ===');
+console.log('Node version:', process.version);
+console.log('Platform:', process.platform);
+console.log('PWD:', process.cwd());
+
+// Check if env vars exist at all
+console.log('Total env vars count:', Object.keys(process.env).length);
+console.log('Railway vars found:', Object.keys(process.env).filter(k => k.startsWith('RAILWAY')));
+
+// Check for our specific vars
+console.log('HELLO exists:', 'HELLO' in process.env);
+console.log('HELLO value type:', typeof process.env.HELLO);
+console.log('HELLO raw value:', JSON.stringify(process.env.HELLO));
+
+// Check Railway-specific vars
+console.log('RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+console.log('PORT:', process.env.PORT);
+
+console.log('=============================');
 
 
 
