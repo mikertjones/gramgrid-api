@@ -147,6 +147,20 @@ const trackEvent = (eventType, req, puzzleDate = null, metadata = {}) => {
   }
 };
 
+
+// Add a debug endpoint
+app.get('/debug-env', (req, res) => {
+  res.json({
+    hello: process.env.HELLO,
+    helloExists: 'HELLO' in process.env,
+    railwayVars: Object.keys(process.env).filter(k => k.startsWith('RAILWAY')),
+    totalEnvCount: Object.keys(process.env).length,
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT
+  });
+});
+
+
 // Analytics middleware - track API calls
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/puzzle') && req.method === 'GET') {
@@ -497,5 +511,14 @@ app.listen(PORT, () => {
   console.log('HELLO at server start:', process.env.HELLO);
   console.log('All env keys:', Object.keys(process.env).length);
   console.log('===================');
+
+  // Check env vars AFTER server starts
+  setTimeout(() => {
+    console.log('=== 5 SECOND DELAY CHECK ===');
+    console.log('HELLO after delay:', process.env.HELLO);
+    console.log('HELLO exists after delay:', 'HELLO' in process.env);
+    console.log('============================');
+  }, 5000);
+
   
 });
