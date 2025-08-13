@@ -1,3 +1,10 @@
+// Right at the very top, before any other code
+console.log('=== STARTUP CHECK ===');
+console.log('HELLO at startup:', process.env.HELLO);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('===================');
+
+
 
 // Only load dotenv in development
 /*if (process.env.NODE_ENV !== 'production') {
@@ -9,6 +16,12 @@ const Database = require('better-sqlite3');
 const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
+
+
+const authenticateApiKey = require('./auth');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Debug environment variables
 console.log('=== ENVIRONMENT DEBUG ===');
@@ -31,10 +44,13 @@ console.log('=====================================');
 console.log('TEST_VAR:', process.env.TEST_VAR);
 console.log('HELLO:', process.env.HELLO);
 
-const authenticateApiKey = require('./auth');
+// Check again after Express setup
+console.log('=== AFTER EXPRESS ===');
+console.log('HELLO after express:', process.env.HELLO);
+console.log('===================');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+
+
 
 // Initialize database connection
 const db = new Database(path.join(__dirname, 'gramgrid_puzzles.db'));
@@ -150,7 +166,7 @@ app.get('/health', (req, res) => {
 
 
 // Protected routes (authentication required)
-app.use('/api', authenticateApiKey); // Apply auth to all /api routes
+//app.use('/api', authenticateApiKey); // Apply auth to all /api routes
 
 
 // Get puzzle by date
@@ -459,5 +475,12 @@ app.listen(PORT, () => {
   console.log(`📅 Week puzzles: http://localhost:${PORT}/api/puzzles/week?level=CL`);
   console.log(`📊 Analytics: http://localhost:${PORT}/api/analytics/stats`);
   console.log(`API Key authentication is ${process.env.API_KEY ? 'enabled' : 'disabled'}`);
+
+
+  console.log(`Server running on port ${PORT}`);
+  console.log('=== SERVER STARTED ===');
+  console.log('HELLO at server start:', process.env.HELLO);
+  console.log('All env keys:', Object.keys(process.env).length);
+  console.log('===================');
   
 });
