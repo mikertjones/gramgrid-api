@@ -29,6 +29,7 @@ Object.keys(process.env).sort().forEach(key => {
 });
 console.log('=====================================');
 console.log('TEST_VAR:', process.env.TEST_VAR);
+console.log('HELLO:', process.env.HELLO);
 
 const authenticateApiKey = require('./auth');
 
