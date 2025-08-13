@@ -195,7 +195,7 @@ app.get('/health', (req, res) => {
 
 
 // Protected routes (authentication required)
-//app.use('/api', authenticateApiKey); // Apply auth to all /api routes
+app.use('/api', authenticateApiKey); // Apply auth to all /api routes
 
 
 // Get puzzle by date
